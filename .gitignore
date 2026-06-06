@@ -1,0 +1,47 @@
+# Build output
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Visual Studio / Rider / VS Code user files
+.vs/
+**/.vs/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+.vscode/
+
+# .NET generated files
+TestResults/
+*.nupkg
+*.snupkg
+artifacts/
+publish/
+coverage/
+coverage.*
+
+# Logs and local environment
+*.log
+*.tmp
+*.temp
+.env
+.env.*
+!.env.example
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Database backups/local exports
+*.bak
+*.bacpac
+*.mdf
+*.ldf
