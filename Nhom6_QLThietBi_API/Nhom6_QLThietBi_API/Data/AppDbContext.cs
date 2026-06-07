@@ -21,8 +21,28 @@ namespace Nhom6_QLThietBi_API.Data
 
         public DbSet<BaoTriMayTinh> BaoTriMayTinhs => Set<BaoTriMayTinh>();
 
+        public DbSet<ThanhToan> ThanhToans => Set<ThanhToan>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
+            modelBuilder.Entity<ThanhToan>(entity =>
+            {
+                entity.ToTable("ThanhToan");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.HoaDonId).HasColumnName("hoaDonId");
+                entity.Property(e => e.SoTien).HasColumnName("soTien");
+                entity.Property(e => e.PhuongThuc).HasColumnName("phuongThuc");
+                entity.Property(e => e.MaGiaoDich).HasColumnName("maGiaoDich");
+                entity.Property(e => e.GhiChu).HasColumnName("ghiChu");
+                entity.Property(e => e.NgayThanhToan).HasColumnName("ngayThanhToan");
+
+                entity.HasOne(e => e.HoaDon)
+                    .WithMany(e => e.ThanhToans)
+                    .HasForeignKey(e => e.HoaDonId);
+            });
 
             modelBuilder.Entity<BaoTriMayTinh>(entity =>
             {

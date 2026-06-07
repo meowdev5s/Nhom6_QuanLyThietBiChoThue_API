@@ -19,6 +19,7 @@ namespace Nhom6_QLThietBi_API.Controllers
         public async Task<IActionResult> GetInvoices()
         {
             var invoices = await _context.HoaDons
+                .Include(h => h.ThanhToans)
                 .Include(h => h.DonThue)
                     .ThenInclude(d => d!.DonVi)
                 .OrderByDescending(h => h.NgayLap)
@@ -35,6 +36,8 @@ namespace Nhom6_QLThietBi_API.Controllers
                     h.TienDatCoc,
                     h.TienDenBu,
                     h.TongThanhToan,
+                    SoTienDaThanhToan = h.ThanhToans.Sum(t => t.SoTien),
+                    SoTienConLai = h.TongThanhToan - h.ThanhToans.Sum(t => t.SoTien),
                     h.TrangThai,
                     h.NgayLap
                 })

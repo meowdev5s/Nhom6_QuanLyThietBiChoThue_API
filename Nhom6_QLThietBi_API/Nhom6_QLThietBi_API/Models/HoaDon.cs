@@ -13,5 +13,7 @@ namespace Nhom6_QLThietBi_API.Models
         public DateTime NgayLap { get; set; }
 
         public DonThue? DonThue { get; set; }
+
+        public ICollection<ThanhToan> ThanhToans { get; set; } = new List<ThanhToan>();
     }
 }
