@@ -23,8 +23,21 @@ namespace Nhom6_QLThietBi_API.Data
 
         public DbSet<ThanhToan> ThanhToans => Set<ThanhToan>();
 
+        public DbSet<MucDoHuHong> MucDoHuHongs => Set<MucDoHuHong>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
+            modelBuilder.Entity<MucDoHuHong>(entity =>
+            {
+                entity.ToTable("MucDoHuHong");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.TenMucDo).HasColumnName("tenMucDo");
+                entity.Property(e => e.MoTa).HasColumnName("moTa");
+                entity.Property(e => e.PhanTramDenBu).HasColumnName("tiLeDenBu");
+            });
 
             modelBuilder.Entity<ThanhToan>(entity =>
             {
