@@ -13,5 +13,7 @@
         public DateTime NgayTao { get; set; }
 
         public ICollection<DonThue> DonThues { get; set; } = new List<DonThue>();
+
+        public ICollection<NguoiDung> NguoiDungs { get; set; } = new List<NguoiDung>();
     }
 }

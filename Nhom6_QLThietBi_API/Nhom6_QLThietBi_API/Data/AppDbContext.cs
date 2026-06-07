@@ -17,8 +17,52 @@ namespace Nhom6_QLThietBi_API.Data
         public DbSet<DonVi> DonVis => Set<DonVi>();
         public DbSet<ChiTietDonThue> ChiTietDonThues => Set<ChiTietDonThue>();
 
+        public DbSet<NguoiDung> NguoiDungs => Set<NguoiDung>();
+
+        public DbSet<BaoTriMayTinh> BaoTriMayTinhs => Set<BaoTriMayTinh>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
+            modelBuilder.Entity<BaoTriMayTinh>(entity =>
+            {
+                entity.ToTable("BaoTriMayTinh");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.MayTinhId).HasColumnName("mayTinhId");
+                entity.Property(e => e.NgayBatDau).HasColumnName("ngayBatDau");
+                entity.Property(e => e.NgayKetThuc).HasColumnName("ngayKetThuc");
+                entity.Property(e => e.NoiDung).HasColumnName("noiDung");
+                entity.Property(e => e.ChiPhi).HasColumnName("chiPhi");
+                entity.Property(e => e.TrangThai).HasColumnName("trangThai");
+
+                entity.HasOne(e => e.MayTinh)
+                    .WithMany()
+                    .HasForeignKey(e => e.MayTinhId);
+            });
+
+            modelBuilder.Entity<NguoiDung>(entity =>
+            {
+                entity.ToTable("NguoiDung");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.DonViId).HasColumnName("donViId");
+                entity.Property(e => e.HoTen).HasColumnName("hoTen");
+                entity.Property(e => e.TenDangNhap).HasColumnName("tenDangNhap");
+                entity.Property(e => e.Email).HasColumnName("email");
+                entity.Property(e => e.SoDienThoai).HasColumnName("soDienThoai");
+                entity.Property(e => e.MatKhauHash).HasColumnName("matKhauHash");
+                entity.Property(e => e.VaiTro).HasColumnName("vaiTro");
+                entity.Property(e => e.TrangThai).HasColumnName("trangThai");
+                entity.Property(e => e.NgayTao).HasColumnName("ngayTao");
+
+                entity.HasOne(e => e.DonVi)
+                    .WithMany(e => e.NguoiDungs)
+                    .HasForeignKey(e => e.DonViId);
+            });
+
             modelBuilder.Entity<DongMayTinh>(entity =>
             {
                 entity.ToTable("DongMayTinh");
