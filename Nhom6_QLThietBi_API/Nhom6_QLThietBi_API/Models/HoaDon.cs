@@ -11,5 +11,7 @@ namespace Nhom6_QLThietBi_API.Models
         public decimal TongThanhToan { get; set; }
         public string TrangThai { get; set; } = string.Empty;
         public DateTime NgayLap { get; set; }
+
+        public DonThue? DonThue { get; set; }
     }
 }

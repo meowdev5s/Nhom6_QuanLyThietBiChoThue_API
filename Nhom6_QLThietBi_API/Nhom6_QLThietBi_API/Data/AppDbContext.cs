@@ -180,6 +180,9 @@ namespace Nhom6_QLThietBi_API.Data
                 entity.Property(e => e.TongThanhToan).HasColumnName("tongThanhToan");
                 entity.Property(e => e.TrangThai).HasColumnName("trangThai");
                 entity.Property(e => e.NgayLap).HasColumnName("ngayLap");
+                entity.HasOne(e => e.DonThue)
+                    .WithMany(e => e.HoaDons)
+                    .HasForeignKey(e => e.DonThueId);
             });
         }
     }

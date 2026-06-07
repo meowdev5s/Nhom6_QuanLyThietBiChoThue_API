@@ -19,5 +19,7 @@ namespace Nhom6_QLThietBi_API.Models
 
         public DonVi? DonVi { get; set; }
         public ICollection<ChiTietDonThue> ChiTietDonThues { get; set; } = new List<ChiTietDonThue>();
+
+        public ICollection<HoaDon> HoaDons { get; set; } = new List<HoaDon>();
     }
 }
