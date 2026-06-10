@@ -24,5 +24,7 @@ namespace Nhom6_QLThietBi_API.Models
         public DongMayTinh? DongMayTinh { get; set; }
 
         public ICollection<ChiTietDonThue> ChiTietDonThues { get; set; } = new List<ChiTietDonThue>();
+
+        public ICollection<AnhMayTinh> AnhMayTinhs { get; set; } = new List<AnhMayTinh>();
     }
 }
