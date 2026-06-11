@@ -9,7 +9,6 @@ namespace Nhom6_QLThietBi_API.Data
         {
         }
 
-        // BỘ DBSET CŨ CỦA ANH
         public DbSet<DongMayTinh> DongMayTinhs => Set<DongMayTinh>();
         public DbSet<MayTinh> MayTinhs => Set<MayTinh>();
         public DbSet<DonThue> DonThues => Set<DonThue>();
@@ -21,7 +20,6 @@ namespace Nhom6_QLThietBi_API.Data
         public DbSet<ThanhToan> ThanhToans => Set<ThanhToan>();
         public DbSet<MucDoHuHong> MucDoHuHongs => Set<MucDoHuHong>();
 
-        // 👇 BỔ SUNG 7 DBSET MỚI ĐỂ API USER GỌI ĐƯỢC
         public DbSet<AnhMayTinh> AnhMayTinhs => Set<AnhMayTinh>();
         public DbSet<HopDong> HopDongs => Set<HopDong>();
         public DbSet<BaoCaoHuHong> BaoCaoHuHongs => Set<BaoCaoHuHong>();
@@ -32,7 +30,6 @@ namespace Nhom6_QLThietBi_API.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // === PHẦN MAPPING CŨ CỦA ANH (GIỮ NGUYÊN KHÔNG ĐỔI) ===
             modelBuilder.Entity<MucDoHuHong>(entity =>
             {
                 entity.ToTable("MucDoHuHong");
@@ -195,7 +192,6 @@ namespace Nhom6_QLThietBi_API.Data
                 entity.HasOne(e => e.DonThue).WithMany(e => e.HoaDons).HasForeignKey(e => e.DonThueId);
             });
 
-            // 👇 === PHẦN MAPPING BỔ SUNG CHO CÁC BẢNG CÒN THIẾU === 👇
 
             modelBuilder.Entity<AnhMayTinh>(entity =>
             {

@@ -45,3 +45,6 @@ docker-compose.override.yml
 *.bacpac
 *.mdf
 *.ldf
+
+# Runtime uploaded files
+**/wwwroot/uploads/

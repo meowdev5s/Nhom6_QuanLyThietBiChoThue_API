@@ -12,7 +12,6 @@ namespace Nhom6_QLThietBi_API.Models
         public string? FileUrl { get; set; }
         public string TrangThai { get; set; } = "hieu_luc";
 
-        // Navigation property
         public DonThue? DonThue { get; set; }
     }
 }

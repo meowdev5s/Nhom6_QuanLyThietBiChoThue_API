@@ -10,7 +10,6 @@ namespace Nhom6_QLThietBi_API.Models
         public bool LaAnhDaiDien { get; set; } = false;
         public DateTime NgayTao { get; set; } = DateTime.Now;
 
-        // Navigation property
         public MayTinh? MayTinh { get; set; }
     }
 }

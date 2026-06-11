@@ -142,33 +142,116 @@ namespace Nhom6_QLThietBi_API.Controllers
         [HttpPost("extend")]
         public async Task<IActionResult> ExtendOrder([FromBody] ExtendOrderRequestDto req)
         {
+            var order = await _context.DonThues
+                .FirstOrDefaultAsync(x => x.Id == req.DonThueId);
+
+            if (order == null)
+            {
+                return NotFound(new { message = "Không tìm thấy đơn thuê." });
+            }
+
+            if (order.TrangThai != "dang_thue" && order.TrangThai != "qua_han")
+            {
+                return BadRequest(new
+                {
+                    message = "Chỉ đơn đang thuê hoặc quá hạn mới được yêu cầu gia hạn."
+                });
+            }
+
+            if (req.NgayKetThucMoi.Date <= order.NgayKetThucDuKien.Date)
+            {
+                return BadRequest(new
+                {
+                    message = "Ngày kết thúc mới phải sau ngày kết thúc hiện tại."
+                });
+            }
+
+            var pendingRequestExists = await _context.YeuCauGiaHans
+                .AnyAsync(x =>
+                    x.DonThueId == req.DonThueId &&
+                    x.TrangThai == "cho_duyet");
+
+            if (pendingRequestExists)
+            {
+                return Conflict(new
+                {
+                    message = "Đơn thuê đã có yêu cầu gia hạn đang chờ duyệt."
+                });
+            }
+
             var yc = new YeuCauGiaHan
             {
                 DonThueId = req.DonThueId,
-                NgayKetThucMoi = req.NgayKetThucMoi,
-                LyDo = req.LyDo,
+                NgayKetThucMoi = req.NgayKetThucMoi.Date,
+                LyDo = string.IsNullOrWhiteSpace(req.LyDo)
+                    ? null
+                    : req.LyDo.Trim(),
                 TrangThai = "cho_duyet",
                 NgayTao = DateTime.Now
             };
             _context.YeuCauGiaHans.Add(yc);
             await _context.SaveChangesAsync();
-            return Ok("Đã gửi yêu cầu gia hạn");
+            return Ok(new
+            {
+                message = "Đã gửi yêu cầu gia hạn.",
+                id = yc.Id
+            });
         }
 
         [HttpPost("return")]
         public async Task<IActionResult> ReturnOrder([FromBody] ReturnMachineRequestDto req)
         {
+            var order = await _context.DonThues
+                .FirstOrDefaultAsync(x => x.Id == req.DonThueId);
+
+            if (order == null)
+            {
+                return NotFound(new { message = "Không tìm thấy đơn thuê." });
+            }
+
+            if (order.TrangThai != "dang_thue" && order.TrangThai != "qua_han")
+            {
+                return BadRequest(new
+                {
+                    message = "Chỉ đơn đang thuê hoặc quá hạn mới được yêu cầu trả máy."
+                });
+            }
+
+            var pendingRequestExists = await _context.YeuCauTraMays
+                .AnyAsync(x =>
+                    x.DonThueId == req.DonThueId &&
+                    x.TrangThai == "cho_xu_ly");
+
+            if (pendingRequestExists)
+            {
+                return Conflict(new
+                {
+                    message = "Đơn thuê đã có yêu cầu trả máy đang chờ xử lý."
+                });
+            }
+
             var yc = new YeuCauTraMay
             {
                 DonThueId = req.DonThueId,
-                LyDo = req.LyDo,
-                GhiChu = req.GhiChu,
+                LyDo = string.IsNullOrWhiteSpace(req.LyDo)
+                    ? null
+                    : req.LyDo.Trim(),
+                GhiChu = string.IsNullOrWhiteSpace(req.GhiChu)
+                    ? null
+                    : req.GhiChu.Trim(),
                 NgayYeuCau = DateTime.Now,
                 TrangThai = "cho_xu_ly"
             };
+
+            order.TrangThai = "yeu_cau_tra";
             _context.YeuCauTraMays.Add(yc);
             await _context.SaveChangesAsync();
-            return Ok("Đã gửi yêu cầu trả máy");
+
+            return Ok(new
+            {
+                message = "Đã gửi yêu cầu trả máy.",
+                id = yc.Id
+            });
         }
     }
 }
