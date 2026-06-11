@@ -38,6 +38,34 @@ namespace Nhom6_QLThietBi_API.Controllers
             return Ok(data);
         }
 
+        [HttpGet("my-assets/{userId}")]
+        public async Task<IActionResult> GetMyAssets(int userId)
+        {
+            var assets = await _context.ChiTietDonThues
+                .AsNoTracking()
+                .Include(x => x.DonThue)
+                .Include(x => x.MayTinh)!.ThenInclude(x => x!.DongMayTinh)
+                .Where(x => x.DonThue != null &&
+                            x.DonThue.NguoiTaoId == userId &&
+                            (x.DonThue.TrangThai == "dang_thue" ||
+                             x.DonThue.TrangThai == "qua_han" ||
+                             x.DonThue.TrangThai == "yeu_cau_tra") &&
+                            x.TrangThai != "da_tra" && x.TrangThai != "huy")
+                .Select(x => new
+                {
+                    chiTietId = x.Id,
+                    mayTinhId = x.MayTinhId,
+                    maTaiSan = x.MayTinh == null ? null : x.MayTinh.MaTaiSan,
+                    name = x.MayTinh == null || x.MayTinh.DongMayTinh == null
+                        ? null
+                        : x.MayTinh.DongMayTinh.Hang + " " + x.MayTinh.DongMayTinh.TenDong,
+                    status = x.TrangThai,
+                    maDonThue = x.DonThue!.MaDonThue
+                })
+                .ToListAsync();
+            return Ok(assets);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDetail(int id)
         {

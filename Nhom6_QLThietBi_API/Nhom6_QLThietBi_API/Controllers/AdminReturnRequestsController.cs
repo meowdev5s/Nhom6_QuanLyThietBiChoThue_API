@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
+using Nhom6_QLThietBi_API.Services;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -141,7 +142,9 @@ namespace Nhom6_QLThietBi_API.Controllers
             {
                 if (order.TrangThai == "yeu_cau_tra")
                 {
-                    order.TrangThai = "dang_thue";
+                    order.TrangThai = order.NgayKetThucDuKien.Date < DateTime.Today
+                        ? "qua_han"
+                        : "dang_thue";
                 }
 
                 await _context.SaveChangesAsync();
@@ -161,7 +164,8 @@ namespace Nhom6_QLThietBi_API.Controllers
                 .Where(x =>
                     detailIds.Contains(x.ChiTietDonThueId) &&
                     (x.TrangThai == "cho_xu_ly" ||
-                     x.TrangThai == "da_xac_nhan"))
+                     x.TrangThai == "da_xac_nhan" ||
+                     x.TrangThai == "da_thanh_toan"))
                 .Select(x => x.ChiTietDonThueId)
                 .Distinct()
                 .ToListAsync();
@@ -180,14 +184,21 @@ namespace Nhom6_QLThietBi_API.Controllers
                 }
             }
 
-            order.TrangThai = "hoan_thanh";
+            order.TrangThai = "yeu_cau_tra";
             order.NgayKetThucThucTe = DateTime.Now;
 
             await _context.SaveChangesAsync();
 
+            var completed = await RentalOrderLifecycleService.SyncCompletionAsync(
+                _context,
+                order.Id);
+
             return Ok(new
             {
-                message = "Đã xác nhận nhận lại máy.",
+                completed,
+                message = completed
+                    ? "Đã nhận máy và hoàn thành đơn thuê."
+                    : "Đã nhận máy. Đơn đang chờ xử lý hư hỏng hoặc thanh toán đủ.",
                 donThueId = order.Id,
                 trangThaiDonThue = order.TrangThai
             });

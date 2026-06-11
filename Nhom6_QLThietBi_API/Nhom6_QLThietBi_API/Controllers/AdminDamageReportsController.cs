@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
+using Nhom6_QLThietBi_API.Services;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -101,6 +102,8 @@ namespace Nhom6_QLThietBi_API.Controllers
                     .ThenInclude(x => x!.DonThue)
                         .ThenInclude(x => x!.HoaDons)
                             .ThenInclude(x => x.ThanhToans)
+                .Include(x => x.ChiTietDonThue)
+                    .ThenInclude(x => x!.MayTinh)
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (report == null)
@@ -121,7 +124,28 @@ namespace Nhom6_QLThietBi_API.Controllers
                 report.MucDoHuHongId = null;
                 report.TienDenBu = 0;
                 report.TrangThai = "da_tu_choi";
+
+                if (report.ChiTietDonThue?.TrangThai == "da_tra" &&
+                    report.ChiTietDonThue.MayTinh != null)
+                {
+                    var hasOtherDamage = await _context.BaoCaoHuHongs.AnyAsync(x =>
+                        x.Id != report.Id &&
+                        x.ChiTietDonThueId == report.ChiTietDonThueId &&
+                        (x.TrangThai == "cho_xu_ly" ||
+                         x.TrangThai == "da_xac_nhan" ||
+                         x.TrangThai == "da_thanh_toan"));
+                    if (!hasOtherDamage)
+                        report.ChiTietDonThue.MayTinh.TinhTrang = "san_sang";
+                }
+
                 await _context.SaveChangesAsync();
+
+                if (report.ChiTietDonThue != null)
+                {
+                    await RentalOrderLifecycleService.SyncCompletionAsync(
+                        _context,
+                        report.ChiTietDonThue.DonThueId);
+                }
 
                 return Ok(new { message = "Đã từ chối báo cáo hư hỏng." });
             }
@@ -160,6 +184,9 @@ namespace Nhom6_QLThietBi_API.Controllers
             report.TienDenBu = compensation;
             report.TrangThai = "da_xac_nhan";
 
+            if (rentalItem.MayTinh != null)
+                rentalItem.MayTinh.TinhTrang = "hong";
+
             var rentalOrder = rentalItem.DonThue;
             rentalOrder.TongTienDenBu += compensation;
 
@@ -179,14 +206,22 @@ namespace Nhom6_QLThietBi_API.Controllers
                     : paidAmount >= invoice.TongThanhToan
                         ? "da_thanh_toan"
                         : "thanh_toan_mot_phan";
+
+                if (invoice.TrangThai == "da_thanh_toan")
+                    report.TrangThai = "da_thanh_toan";
             }
 
             await _context.SaveChangesAsync();
+            var orderCompleted = await RentalOrderLifecycleService.SyncCompletionAsync(
+                _context,
+                rentalOrder.Id);
 
             return Ok(new
             {
                 message = "Đã xác nhận báo cáo hư hỏng.",
-                tienDenBu = compensation
+                tienDenBu = compensation,
+                orderCompleted,
+                orderStatus = rentalOrder.TrangThai
             });
         }
     }

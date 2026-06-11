@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Nhom6_QLThietBi_API.Data;
+using Nhom6_QLThietBi_API.Models;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -33,6 +34,27 @@ namespace Nhom6_QLThietBi_API.Controllers
             public string NewPassword { get; set; } = string.Empty;
         }
 
+        public class RegistrationOrganizationRequest
+        {
+            public string TenDonVi { get; set; } = string.Empty;
+            public string? DiaChi { get; set; }
+            public string? MaSoThue { get; set; }
+            public string? NguoiDaiDien { get; set; }
+            public string? Email { get; set; }
+            public string? SoDienThoai { get; set; }
+        }
+
+        public class RegisterRequest
+        {
+            public int? DonViId { get; set; }
+            public RegistrationOrganizationRequest? DonViMoi { get; set; }
+            public string HoTen { get; set; } = string.Empty;
+            public string TenDangNhap { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string? SoDienThoai { get; set; }
+            public string MatKhau { get; set; } = string.Empty;
+        }
+
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
 
@@ -40,6 +62,111 @@ namespace Nhom6_QLThietBi_API.Controllers
         {
             _context = context;
             _configuration = configuration;
+        }
+
+        [HttpGet("organizations")]
+        public async Task<IActionResult> GetRegistrationOrganizations()
+        {
+            var organizations = await _context.DonVis
+                .AsNoTracking()
+                .Where(x => x.TrangThai == "hoat_dong")
+                .OrderBy(x => x.TenDonVi)
+                .Select(x => new { x.Id, x.TenDonVi, x.DiaChi, x.MaSoThue })
+                .ToListAsync();
+            return Ok(organizations);
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            var fullName = request.HoTen?.Trim();
+            var username = request.TenDangNhap?.Trim();
+            var email = request.Email?.Trim();
+            if (string.IsNullOrEmpty(fullName) || string.IsNullOrEmpty(username) ||
+                string.IsNullOrEmpty(email))
+                return BadRequest(new { message = "Vui lòng nhập đầy đủ họ tên, tên đăng nhập và email." });
+            if (!email.Contains('@'))
+                return BadRequest(new { message = "Email không đúng định dạng." });
+            if (!IsValidPassword(request.MatKhau))
+                return BadRequest(new { message = "Mật khẩu phải có ít nhất 6 ký tự." });
+            if (request.DonViId.HasValue == (request.DonViMoi != null))
+                return BadRequest(new { message = "Hãy chọn một đơn vị hiện có hoặc nhập đơn vị mới." });
+
+            var normalizedUsername = username.ToLowerInvariant();
+            var normalizedEmail = email.ToLowerInvariant();
+            if (await _context.NguoiDungs.AnyAsync(x =>
+                    x.TenDangNhap.ToLower() == normalizedUsername))
+                return Conflict(new { message = "Tên đăng nhập đã tồn tại." });
+            if (await _context.NguoiDungs.AnyAsync(x =>
+                    x.Email != null && x.Email.ToLower() == normalizedEmail))
+                return Conflict(new { message = "Email đã được sử dụng." });
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            DonVi organization;
+            if (request.DonViId.HasValue)
+            {
+                organization = await _context.DonVis.FirstOrDefaultAsync(x =>
+                    x.Id == request.DonViId.Value && x.TrangThai == "hoat_dong");
+                if (organization == null)
+                    return BadRequest(new { message = "Đơn vị đã chọn không tồn tại hoặc đã tạm khóa." });
+            }
+            else
+            {
+                var newOrganization = request.DonViMoi!;
+                var organizationName = newOrganization.TenDonVi?.Trim();
+                var taxCode = Normalize(newOrganization.MaSoThue);
+                if (string.IsNullOrEmpty(organizationName))
+                    return BadRequest(new { message = "Tên đơn vị không được để trống." });
+                if (!string.IsNullOrWhiteSpace(newOrganization.Email) &&
+                    !newOrganization.Email.Contains('@'))
+                    return BadRequest(new { message = "Email đơn vị không đúng định dạng." });
+                if (await _context.DonVis.AnyAsync(x =>
+                        x.TenDonVi.ToLower() == organizationName.ToLower()))
+                    return Conflict(new { message = "Tên đơn vị đã tồn tại. Hãy chọn đơn vị đó trong danh sách." });
+                if (taxCode != null && await _context.DonVis.AnyAsync(x =>
+                        x.MaSoThue != null && x.MaSoThue.ToLower() == taxCode.ToLower()))
+                    return Conflict(new { message = "Mã số thuế đã thuộc một đơn vị khác." });
+
+                organization = new DonVi
+                {
+                    TenDonVi = organizationName,
+                    DiaChi = Normalize(newOrganization.DiaChi),
+                    MaSoThue = taxCode,
+                    NguoiDaiDien = Normalize(newOrganization.NguoiDaiDien) ?? fullName,
+                    Email = Normalize(newOrganization.Email),
+                    SoDienThoai = Normalize(newOrganization.SoDienThoai),
+                    TrangThai = "hoat_dong",
+                    NgayTao = DateTime.Now
+                };
+                _context.DonVis.Add(organization);
+                await _context.SaveChangesAsync();
+            }
+
+            var user = new NguoiDung
+            {
+                DonViId = organization.Id,
+                HoTen = fullName,
+                TenDangNhap = username,
+                Email = email,
+                SoDienThoai = Normalize(request.SoDienThoai),
+                MatKhauHash = HashPassword(request.MatKhau),
+                VaiTro = "khach_hang",
+                TrangThai = "hoat_dong",
+                NgayTao = DateTime.Now
+            };
+            _context.NguoiDungs.Add(user);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                userId = user.Id,
+                donViId = user.DonViId,
+                user.HoTen,
+                user.TenDangNhap,
+                user.VaiTro,
+                token = CreateToken(user.Id, user.TenDangNhap, user.VaiTro)
+            });
         }
 
         [HttpPost("login")]
@@ -61,6 +188,7 @@ namespace Nhom6_QLThietBi_API.Controllers
             return Ok(new
             {
                 userId = user.Id,
+                donViId = user.DonViId,
                 user.HoTen,
                 user.TenDangNhap,
                 user.VaiTro,
@@ -156,6 +284,12 @@ namespace Nhom6_QLThietBi_API.Controllers
 
             // Hỗ trợ dữ liệu minh họa cũ trong script SQL.
             return storedHash == password + "_demo_hash";
+        }
+
+        private static string? Normalize(string? value)
+        {
+            var text = value?.Trim();
+            return string.IsNullOrEmpty(text) ? null : text;
         }
 
         private static bool IsValidPassword(string password) =>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
 using Nhom6_QLThietBi_API.Models;
+using Nhom6_QLThietBi_API.Services;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -149,13 +150,18 @@ namespace Nhom6_QLThietBi_API.Controllers
             }
 
             await _context.SaveChangesAsync();
+            var orderCompleted = await RentalOrderLifecycleService.SyncCompletionAsync(
+                _context,
+                order.Id);
             return Ok(new
             {
                 message = "Ghi nhận thanh toán và cập nhật hóa đơn thành công.",
                 paymentId = payment.Id,
                 invoiceId = invoice.Id,
                 invoiceCode = invoice.MaHoaDon,
-                invoiceStatus = invoice.TrangThai
+                invoiceStatus = invoice.TrangThai,
+                orderCompleted,
+                orderStatus = order.TrangThai
             });
         }
 
@@ -231,11 +237,16 @@ namespace Nhom6_QLThietBi_API.Controllers
             }
 
             await _context.SaveChangesAsync();
+            var orderCompleted = await RentalOrderLifecycleService.SyncCompletionAsync(
+                _context,
+                payment.HoaDon.DonThueId);
             return Ok(new
             {
                 message = "Đã ghi nhận điều chỉnh thanh toán.",
                 adjustmentId = adjustment.Id,
-                invoiceStatus = payment.HoaDon.TrangThai
+                invoiceStatus = payment.HoaDon.TrangThai,
+                orderCompleted,
+                orderStatus = payment.HoaDon.DonThue?.TrangThai
             });
         }
 

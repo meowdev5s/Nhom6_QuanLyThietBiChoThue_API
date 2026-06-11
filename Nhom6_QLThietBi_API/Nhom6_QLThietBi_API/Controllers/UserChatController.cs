@@ -16,6 +16,34 @@ namespace Nhom6_QLThietBi_API.Controllers
         private readonly AppDbContext _context;
         public UserChatController(AppDbContext context) => _context = context;
 
+        [HttpGet("session/{userId}")]
+        public async Task<IActionResult> GetOrCreateSession(int userId)
+        {
+            var user = await _context.NguoiDungs.FindAsync(userId);
+            if (user == null) return NotFound(new { message = "Không tìm thấy tài khoản." });
+
+            var chat = await _context.CuocTroChuyens
+                .Where(x => x.KhachHangId == userId && x.TrangThai == "dang_mo")
+                .OrderByDescending(x => x.NgayCapNhat)
+                .FirstOrDefaultAsync();
+            if (chat == null)
+            {
+                chat = new CuocTroChuyen
+                {
+                    DonViId = user.DonViId,
+                    KhachHangId = user.Id,
+                    TieuDe = "Hỗ trợ khách hàng - " + user.HoTen,
+                    TrangThai = "dang_mo",
+                    NgayTao = DateTime.Now,
+                    NgayCapNhat = DateTime.Now
+                };
+                _context.CuocTroChuyens.Add(chat);
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { chatId = chat.Id });
+        }
+
         [HttpGet("messages/{chatId}")]
         public async Task<IActionResult> GetMessages(int chatId)
         {

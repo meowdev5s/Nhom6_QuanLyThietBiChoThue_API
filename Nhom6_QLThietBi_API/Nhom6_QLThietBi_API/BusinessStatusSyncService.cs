@@ -11,7 +11,7 @@ namespace Nhom6_QLThietBi_API.Services
             var changed = false;
 
             var overdueOrders = await context.DonThues
-                .Where(x => (x.TrangThai == "da_duyet" || x.TrangThai == "dang_thue") &&
+                .Where(x => x.TrangThai == "dang_thue" &&
                             x.NgayKetThucDuKien < today)
                 .ToListAsync();
 
@@ -25,7 +25,9 @@ namespace Nhom6_QLThietBi_API.Services
                 .Include(x => x.DonThue)
                 .Where(x => x.TrangThai == "hieu_luc" &&
                             x.DonThue != null &&
-                            (x.DonThue.NgayKetThucThucTe ?? x.DonThue.NgayKetThucDuKien) < today)
+                            (x.DonThue.TrangThai == "hoan_thanh" ||
+                             x.DonThue.TrangThai == "huy" ||
+                             x.DonThue.TrangThai == "tu_choi"))
                 .ToListAsync();
 
             foreach (var contract in expiredContracts)

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
 using Nhom6_QLThietBi_API.Services;
-using System.Linq;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -26,78 +25,76 @@ namespace Nhom6_QLThietBi_API.Controllers
 
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(
-    int id,
-    [FromBody] UpdateRentalOrderStatusRequest request
-)
+            int id,
+            [FromBody] UpdateRentalOrderStatusRequest request)
         {
-            var allowedStatuses = new[]
-            {
-        "cho_duyet",
-        "da_duyet",
-        "dang_thue",
-        "yeu_cau_tra",
-        "hoan_thanh",
-        "qua_han",
-        "huy",
-        "tu_choi"
-    };
-
-            if (!allowedStatuses.Contains(request.Status))
-            {
-                return BadRequest(new { message = "Trạng thái đơn thuê không hợp lệ." });
-            }
-
+            var nextStatus = (request.Status ?? string.Empty).Trim().ToLowerInvariant();
             var order = await _context.DonThues
-                .Include(d => d.ChiTietDonThues)
-                .FirstOrDefaultAsync(d => d.Id == id);
+                .Include(x => x.ChiTietDonThues)
+                .FirstOrDefaultAsync(x => x.Id == id);
 
             if (order == null)
-            {
                 return NotFound(new { message = "Không tìm thấy đơn thuê." });
+
+            var allowedTransitions = order.TrangThai switch
+            {
+                "cho_duyet" => new[] { "da_duyet", "tu_choi" },
+                "da_duyet" => new[] { "dang_thue", "huy" },
+                _ => Array.Empty<string>()
+            };
+
+            if (!allowedTransitions.Contains(nextStatus))
+            {
+                return Conflict(new
+                {
+                    message = "Không thể chuyển đơn sang trạng thái này. Đơn đang thuê phải đi qua quy trình trả máy và thanh toán."
+                });
             }
 
-            var deviceIds = order.ChiTietDonThues
-                .Select(ct => ct.MayTinhId)
-                .ToList();
+            if (order.ChiTietDonThues.Count == 0)
+                return BadRequest(new { message = "Đơn thuê chưa có thiết bị." });
 
-            var devices = await _context.MayTinhs
-                .Where(m => deviceIds.Contains(m.Id))
-                .ToListAsync();
-
-            order.TrangThai = request.Status;
-
-            foreach (var detail in order.ChiTietDonThues)
+            if (nextStatus == "dang_thue")
             {
-                if (request.Status == "dang_thue")
+                var hasActiveContract = await _context.HopDongs.AnyAsync(x =>
+                    x.DonThueId == order.Id && x.TrangThai == "hieu_luc");
+                if (!hasActiveContract)
                 {
+                    return BadRequest(new
+                    {
+                        message = "Cần có hợp đồng hiệu lực trước khi bàn giao máy và bắt đầu thuê."
+                    });
+                }
+
+                var deviceIds = order.ChiTietDonThues
+                    .Select(x => x.MayTinhId)
+                    .Distinct()
+                    .ToList();
+                var devices = await _context.MayTinhs
+                    .Where(x => deviceIds.Contains(x.Id))
+                    .ToListAsync();
+
+                if (devices.Count != deviceIds.Count ||
+                    devices.Any(x => x.TinhTrang != "san_sang"))
+                {
+                    return Conflict(new
+                    {
+                        message = "Có thiết bị không còn sẵn sàng. Vui lòng kiểm tra lại kho trước khi bắt đầu thuê."
+                    });
+                }
+
+                foreach (var detail in order.ChiTietDonThues)
                     detail.TrangThai = "dang_thue";
-                }
-                else if (request.Status == "hoan_thanh")
-                {
-                    detail.TrangThai = "da_tra";
-                }
-                else if (request.Status == "huy" || request.Status == "tu_choi")
-                {
-                    detail.TrangThai = "huy";
-                }
-            }
-
-            foreach (var device in devices)
-            {
-                if (request.Status == "dang_thue")
-                {
+                foreach (var device in devices)
                     device.TinhTrang = "dang_thue";
-                }
-                else if (
-                    request.Status == "hoan_thanh" ||
-                    request.Status == "huy" ||
-                    request.Status == "tu_choi"
-                )
-                {
-                    device.TinhTrang = "san_sang";
-                }
+            }
+            else if (nextStatus == "huy" || nextStatus == "tu_choi")
+            {
+                foreach (var detail in order.ChiTietDonThues)
+                    detail.TrangThai = "huy";
             }
 
+            order.TrangThai = nextStatus;
             await _context.SaveChangesAsync();
 
             return Ok(new

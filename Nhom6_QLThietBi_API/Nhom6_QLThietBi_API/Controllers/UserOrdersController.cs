@@ -61,25 +61,18 @@ namespace Nhom6_QLThietBi_API.Controllers
 
                 totalTienThue += detail.ThanhTien;
                 totalTienCoc += detail.TienDatCoc;
-                may.TinhTrang = "dang_thue";
-
                 _context.ChiTietDonThues.Add(detail);
             }
 
             donThue.TongTienThue = totalTienThue;
             donThue.TongTienDatCoc = totalTienCoc;
 
-            var hoaDon = new HoaDon
+            if (totalTienThue <= 0)
             {
-                DonThueId = donThue.Id,
-                MaHoaDon = "HD-" + donThue.MaDonThue.Substring(3),
-                TienThue = totalTienThue,
-                TienDatCoc = totalTienCoc,
-                TongThanhToan = totalTienThue + totalTienCoc,
-                TrangThai = "chua_thanh_toan",
-                NgayLap = DateTime.Now
-            };
-            _context.HoaDons.Add(hoaDon);
+                _context.DonThues.Remove(donThue);
+                await _context.SaveChangesAsync();
+                return BadRequest(new { message = "Không có thiết bị sẵn sàng trong yêu cầu." });
+            }
 
             await _context.SaveChangesAsync();
             return Ok(new { msg = "Đặt thành công", code = donThue.MaDonThue });
