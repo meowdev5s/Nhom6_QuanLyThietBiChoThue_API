@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
+    [Authorize(Roles = "admin,nhan_vien")]
     [ApiController]
     [Route("api/admin/invoices")]
     public class AdminInvoicesController : ControllerBase
@@ -30,8 +32,7 @@ namespace Nhom6_QLThietBi_API.Controllers
                     h.MaHoaDon,
                     MaDonThue = h.DonThue == null ? null : h.DonThue.MaDonThue,
                     TenDonVi = h.DonThue == null || h.DonThue.DonVi == null
-                        ? null
-                        : h.DonThue.DonVi.TenDonVi,
+                        ? null : h.DonThue.DonVi.TenDonVi,
                     h.TienThue,
                     h.TienDatCoc,
                     h.TienDenBu,

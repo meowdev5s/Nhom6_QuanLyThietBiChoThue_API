@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +8,7 @@ using Nhom6_QLThietBi_API.Models;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
+    [Authorize(Roles = "admin")]
     [ApiController]
     [Route("api/admin/users")]
     public class AdminUsersController : ControllerBase
@@ -132,6 +135,12 @@ namespace Nhom6_QLThietBi_API.Controllers
                 id);
             if (validation != null) return validation;
 
+            var accessValidation = await ValidateAdminAccessChange(
+                user,
+                request.VaiTro.Trim(),
+                request.TrangThai.Trim());
+            if (accessValidation != null) return accessValidation;
+
             user.HoTen = request.HoTen.Trim();
             user.TenDangNhap = request.TenDangNhap.Trim();
             user.Email = Normalize(request.Email);
@@ -155,6 +164,12 @@ namespace Nhom6_QLThietBi_API.Controllers
             var user = await _context.NguoiDungs.FindAsync(id);
             if (user == null)
                 return NotFound(new { message = "Không tìm thấy tài khoản." });
+
+            var accessValidation = await ValidateAdminAccessChange(
+                user,
+                user.VaiTro,
+                request.Status.Trim());
+            if (accessValidation != null) return accessValidation;
 
             user.TrangThai = request.Status.Trim();
             await _context.SaveChangesAsync();
@@ -204,6 +219,45 @@ namespace Nhom6_QLThietBi_API.Controllers
                     x.Email != null && x.Email.ToLower() == normalizedEmail);
                 if (duplicateEmail)
                     return Conflict(new { message = "Email đã tồn tại." });
+            }
+
+            return null;
+        }
+
+        private async Task<IActionResult?> ValidateAdminAccessChange(
+            NguoiDung target,
+            string nextRole,
+            string nextStatus)
+        {
+            var currentUserIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(currentUserIdText, out var currentUserId))
+                return Unauthorized(new { message = "Không xác định được tài khoản đang đăng nhập." });
+
+            var removesAdminAccess = target.VaiTro == "admin" &&
+                target.TrangThai == "hoat_dong" &&
+                (nextRole != "admin" || nextStatus != "hoat_dong");
+
+            if (target.Id == currentUserId && removesAdminAccess)
+            {
+                return Conflict(new
+                {
+                    message = "Admin không thể tự đổi vai trò hoặc tự khóa tài khoản đang đăng nhập."
+                });
+            }
+
+            if (removesAdminAccess)
+            {
+                var otherActiveAdmins = await _context.NguoiDungs.CountAsync(x =>
+                    x.Id != target.Id &&
+                    x.VaiTro == "admin" &&
+                    x.TrangThai == "hoat_dong");
+                if (otherActiveAdmins == 0)
+                {
+                    return Conflict(new
+                    {
+                        message = "Hệ thống phải luôn còn ít nhất một Admin đang hoạt động."
+                    });
+                }
             }
 
             return null;

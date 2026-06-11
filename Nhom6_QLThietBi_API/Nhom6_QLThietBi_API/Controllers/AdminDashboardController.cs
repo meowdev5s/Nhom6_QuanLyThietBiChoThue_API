@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
+    [Authorize(Roles = "admin,nhan_vien")]
     [ApiController]
     [Route("api/admin/dashboard")]
     public class AdminDashboardController : ControllerBase
@@ -26,11 +28,7 @@ namespace Nhom6_QLThietBi_API.Controllers
 
             var deviceStatus = await _context.MayTinhs
                 .GroupBy(m => m.TinhTrang)
-                .Select(g => new
-                {
-                    status = g.Key,
-                    count = g.Count()
-                })
+                .Select(g => new { status = g.Key, count = g.Count() })
                 .ToListAsync();
 
             var monthlyRevenue = await _context.HoaDons
@@ -51,6 +49,7 @@ namespace Nhom6_QLThietBi_API.Controllers
                 .Take(5)
                 .Select(d => new
                 {
+                    id = d.Id,
                     type = "rental_due",
                     title = d.MaDonThue,
                     dueDate = d.NgayKetThucDuKien,
@@ -65,9 +64,12 @@ namespace Nhom6_QLThietBi_API.Controllers
                 .Take(5)
                 .Select(m => new
                 {
+                    id = m.Id,
                     type = "device_attention",
                     title = m.MaTaiSan,
-                    deviceName = m.DongMayTinh == null ? m.MaTaiSan : m.DongMayTinh.Hang + " " + m.DongMayTinh.TenDong,
+                    deviceName = m.DongMayTinh == null
+                        ? m.MaTaiSan
+                        : m.DongMayTinh.Hang + " " + m.DongMayTinh.TenDong,
                     status = m.TinhTrang
                 })
                 .ToListAsync();
@@ -84,11 +86,7 @@ namespace Nhom6_QLThietBi_API.Controllers
                 },
                 deviceStatus,
                 monthlyRevenue,
-                reminders = new
-                {
-                    upcomingOrders,
-                    maintenanceReminders
-                }
+                reminders = new { upcomingOrders, maintenanceReminders }
             });
         }
     }

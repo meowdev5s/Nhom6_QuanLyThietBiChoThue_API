@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
@@ -5,6 +6,7 @@ using Nhom6_QLThietBi_API.Models;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
+    [Authorize(Roles = "admin,nhan_vien")]
     [ApiController]
     [Route("api/admin/contracts")]
     public class AdminContractsController : ControllerBase
@@ -12,6 +14,14 @@ namespace Nhom6_QLThietBi_API.Controllers
         public class CreateContractRequest
         {
             public int DonThueId { get; set; }
+            public string MaHopDong { get; set; } = string.Empty;
+            public DateTime NgayLap { get; set; }
+            public string? NoiDung { get; set; }
+            public string? FileUrl { get; set; }
+        }
+
+        public class UpdateContractRequest
+        {
             public string MaHopDong { get; set; } = string.Empty;
             public DateTime NgayLap { get; set; }
             public string? NoiDung { get; set; }
@@ -33,75 +43,82 @@ namespace Nhom6_QLThietBi_API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetContracts()
         {
-            var contracts = await _context.HopDongs
-                .AsNoTracking()
+            var contracts = await ContractQuery()
                 .OrderByDescending(x => x.NgayLap)
-                .Select(x => new
-                {
-                    x.Id, x.DonThueId, x.MaHopDong, x.NgayLap,
-                    x.NoiDung, x.FileUrl, x.TrangThai,
-                    MaDonThue = x.DonThue == null ? null : x.DonThue.MaDonThue,
-                    TenDonVi = x.DonThue == null || x.DonThue.DonVi == null
-                        ? null : x.DonThue.DonVi.TenDonVi,
-                    NgayBatDau = x.DonThue == null
-                        ? (DateTime?)null : x.DonThue.NgayBatDau,
-                    NgayKetThuc = x.DonThue == null
-                        ? (DateTime?)null : x.DonThue.NgayKetThucDuKien,
-                    TienThue = x.DonThue == null ? 0 : x.DonThue.TongTienThue,
-                    TienDatCoc = x.DonThue == null ? 0 : x.DonThue.TongTienDatCoc,
-                    TienDenBu = x.DonThue == null ? 0 : x.DonThue.TongTienDenBu,
-                    Devices = x.DonThue!.ChiTietDonThues.Select(detail => new
-                    {
-                        detail.MayTinhId,
-                        MaTaiSan = detail.MayTinh == null ? null : detail.MayTinh.MaTaiSan,
-                        TenMay = detail.MayTinh == null ||
-                                 detail.MayTinh.DongMayTinh == null
-                            ? null
-                            : detail.MayTinh.DongMayTinh.Hang + " " +
-                              detail.MayTinh.DongMayTinh.TenDong
-                    })
-                })
                 .ToListAsync();
-            return Ok(contracts);
+            return Ok(contracts.Select(ToResponse));
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetContract(int id)
+        {
+            var contract = await ContractQuery().FirstOrDefaultAsync(x => x.Id == id);
+            if (contract == null)
+                return NotFound(new { message = "Không tìm thấy hợp đồng." });
+            return Ok(ToResponse(contract));
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateContract(
-            [FromBody] CreateContractRequest request)
+        public async Task<IActionResult> CreateContract([FromBody] CreateContractRequest request)
         {
-            var code = request.MaHopDong.Trim();
-            if (request.DonThueId <= 0 || string.IsNullOrWhiteSpace(code))
-                return BadRequest(new { message = "Đơn thuê hoặc mã hợp đồng không hợp lệ." });
-            if (code.Length > 50)
-                return BadRequest(new { message = "Mã hợp đồng không được quá 50 ký tự." });
+            var codeError = ValidateCode(request.MaHopDong);
+            if (codeError != null) return codeError;
+            if (request.DonThueId <= 0)
+                return BadRequest(new { message = "Đơn thuê không hợp lệ." });
 
-            var order = await _context.DonThues
-                .FirstOrDefaultAsync(x => x.Id == request.DonThueId);
+            var code = request.MaHopDong.Trim();
+            var order = await _context.DonThues.FindAsync(request.DonThueId);
             if (order == null)
                 return NotFound(new { message = "Không tìm thấy đơn thuê." });
 
-            var statuses = new[] { "da_duyet", "dang_thue", "qua_han" };
-            if (!statuses.Contains(order.TrangThai))
+            var orderStatuses = new[] { "da_duyet", "dang_thue", "qua_han" };
+            if (!orderStatuses.Contains(order.TrangThai))
                 return BadRequest(new { message = "Đơn thuê chưa đủ điều kiện lập hợp đồng." });
             if (await _context.HopDongs.AnyAsync(x => x.DonThueId == request.DonThueId))
                 return Conflict(new { message = "Đơn thuê này đã có hợp đồng." });
-            if (await _context.HopDongs.AnyAsync(
-                    x => x.MaHopDong.ToLower() == code.ToLower()))
+            if (await CodeExists(code))
                 return Conflict(new { message = "Mã hợp đồng đã tồn tại." });
 
             var contract = new HopDong
             {
                 DonThueId = request.DonThueId,
                 MaHopDong = code,
-                NgayLap = request.NgayLap == default
-                    ? DateTime.Today : request.NgayLap.Date,
+                NgayLap = request.NgayLap == default ? DateTime.Today : request.NgayLap.Date,
                 NoiDung = Normalize(request.NoiDung),
                 FileUrl = Normalize(request.FileUrl),
                 TrangThai = "hieu_luc"
             };
             _context.HopDongs.Add(contract);
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Tạo hợp đồng thành công.", id = contract.Id });
+            return CreatedAtAction(nameof(GetContract), new { id = contract.Id },
+                new { message = "Tạo hợp đồng thành công.", id = contract.Id });
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateContract(
+            int id,
+            [FromBody] UpdateContractRequest request)
+        {
+            var codeError = ValidateCode(request.MaHopDong);
+            if (codeError != null) return codeError;
+
+            var contract = await _context.HopDongs.FindAsync(id);
+            if (contract == null)
+                return NotFound(new { message = "Không tìm thấy hợp đồng." });
+            if (contract.TrangThai != "hieu_luc")
+                return Conflict(new { message = "Chỉ được sửa hợp đồng đang hiệu lực." });
+
+            var code = request.MaHopDong.Trim();
+            if (await CodeExists(code, id))
+                return Conflict(new { message = "Mã hợp đồng đã tồn tại." });
+
+            contract.MaHopDong = code;
+            contract.NgayLap = request.NgayLap == default ? contract.NgayLap : request.NgayLap.Date;
+            contract.NoiDung = Normalize(request.NoiDung);
+            contract.FileUrl = Normalize(request.FileUrl);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Cập nhật hợp đồng thành công.", id });
         }
 
         [HttpPatch("{id}/status")]
@@ -109,17 +126,74 @@ namespace Nhom6_QLThietBi_API.Controllers
             int id,
             [FromBody] UpdateContractStatusRequest request)
         {
-            var statuses = new[] { "hieu_luc", "het_hieu_luc", "huy" };
-            if (!statuses.Contains(request.Status))
+            var status = request.Status.Trim().ToLowerInvariant();
+            if (status != "het_hieu_luc" && status != "huy")
                 return BadRequest(new { message = "Trạng thái hợp đồng không hợp lệ." });
 
             var contract = await _context.HopDongs.FindAsync(id);
             if (contract == null)
                 return NotFound(new { message = "Không tìm thấy hợp đồng." });
+            if (contract.TrangThai != "hieu_luc")
+                return Conflict(new { message = "Hợp đồng đã được chốt trạng thái." });
 
-            contract.TrangThai = request.Status;
+            contract.TrangThai = status;
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Cập nhật hợp đồng thành công." });
+            return Ok(new { message = "Cập nhật hợp đồng thành công.", id, status });
+        }
+
+        private IQueryable<HopDong> ContractQuery()
+        {
+            return _context.HopDongs
+                .AsNoTracking()
+                .Include(x => x.DonThue)!.ThenInclude(x => x!.DonVi)
+                .Include(x => x.DonThue)!.ThenInclude(x => x!.ChiTietDonThues)
+                    .ThenInclude(x => x.MayTinh)!.ThenInclude(x => x!.DongMayTinh);
+        }
+
+        private static object ToResponse(HopDong x)
+        {
+            return new
+            {
+                x.Id,
+                x.DonThueId,
+                x.MaHopDong,
+                x.NgayLap,
+                x.NoiDung,
+                x.FileUrl,
+                x.TrangThai,
+                MaDonThue = x.DonThue?.MaDonThue,
+                TenDonVi = x.DonThue?.DonVi?.TenDonVi,
+                NgayBatDau = x.DonThue?.NgayBatDau,
+                NgayKetThuc = x.DonThue?.NgayKetThucDuKien,
+                TienThue = x.DonThue?.TongTienThue ?? 0,
+                TienDatCoc = x.DonThue?.TongTienDatCoc ?? 0,
+                TienDenBu = x.DonThue?.TongTienDenBu ?? 0,
+                Devices = x.DonThue?.ChiTietDonThues.Select(detail => (object)new
+                {
+                    detail.MayTinhId,
+                    MaTaiSan = detail.MayTinh?.MaTaiSan,
+                    TenMay = detail.MayTinh?.DongMayTinh == null
+                        ? null
+                        : detail.MayTinh.DongMayTinh.Hang + " " + detail.MayTinh.DongMayTinh.TenDong
+                }) ?? Enumerable.Empty<object>()
+            };
+        }
+
+        private IActionResult? ValidateCode(string? value)
+        {
+            var code = value?.Trim();
+            if (string.IsNullOrEmpty(code))
+                return BadRequest(new { message = "Mã hợp đồng không được để trống." });
+            if (code.Length > 50)
+                return BadRequest(new { message = "Mã hợp đồng không được quá 50 ký tự." });
+            return null;
+        }
+
+        private Task<bool> CodeExists(string code, int? excludedId = null)
+        {
+            return _context.HopDongs.AnyAsync(x =>
+                (!excludedId.HasValue || x.Id != excludedId.Value) &&
+                x.MaHopDong.ToLower() == code.ToLower());
         }
 
         private static string? Normalize(string? value)

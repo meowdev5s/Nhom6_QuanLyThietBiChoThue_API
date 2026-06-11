@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
@@ -5,6 +6,7 @@ using Nhom6_QLThietBi_API.Models;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
+    [Authorize(Roles = "admin")]
     [ApiController]
     [Route("api/admin/computer-lines")]
     public class AdminComputerLinesController : ControllerBase
