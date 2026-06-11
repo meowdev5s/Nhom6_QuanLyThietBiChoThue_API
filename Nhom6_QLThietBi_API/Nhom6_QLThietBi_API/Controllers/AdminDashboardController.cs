@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
+using Nhom6_QLThietBi_API.Services;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -20,6 +21,8 @@ namespace Nhom6_QLThietBi_API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetDashboard()
         {
+            await BusinessStatusSyncService.SyncAsync(_context);
+
             var totalDevices = await _context.MayTinhs.CountAsync();
             var availableDevices = await _context.MayTinhs.CountAsync(m => m.TinhTrang == "san_sang");
             var rentedDevices = await _context.MayTinhs.CountAsync(m => m.TinhTrang == "dang_thue");
@@ -31,15 +34,15 @@ namespace Nhom6_QLThietBi_API.Controllers
                 .Select(g => new { status = g.Key, count = g.Count() })
                 .ToListAsync();
 
-            var monthlyRevenue = await _context.HoaDons
-                .GroupBy(h => new { h.NgayLap.Year, h.NgayLap.Month })
+            var monthlyRevenue = await _context.ThanhToans
+                .GroupBy(t => new { t.NgayThanhToan.Year, t.NgayThanhToan.Month })
                 .OrderBy(g => g.Key.Year)
                 .ThenBy(g => g.Key.Month)
                 .Select(g => new
                 {
                     year = g.Key.Year,
                     month = g.Key.Month,
-                    revenue = g.Sum(h => h.TongThanhToan)
+                    revenue = g.Sum(t => t.SoTien)
                 })
                 .ToListAsync();
 

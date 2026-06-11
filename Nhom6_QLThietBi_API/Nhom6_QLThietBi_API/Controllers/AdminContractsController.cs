@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
 using Nhom6_QLThietBi_API.Models;
+using Nhom6_QLThietBi_API.Services;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -43,6 +44,8 @@ namespace Nhom6_QLThietBi_API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetContracts()
         {
+            await BusinessStatusSyncService.SyncAsync(_context);
+
             var contracts = await ContractQuery()
                 .OrderByDescending(x => x.NgayLap)
                 .ToListAsync();
@@ -52,6 +55,8 @@ namespace Nhom6_QLThietBi_API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetContract(int id)
         {
+            await BusinessStatusSyncService.SyncAsync(_context);
+
             var contract = await ContractQuery().FirstOrDefaultAsync(x => x.Id == id);
             if (contract == null)
                 return NotFound(new { message = "Không tìm thấy hợp đồng." });

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Nhom6_QLThietBi_API.Data;
@@ -17,6 +18,19 @@ namespace Nhom6_QLThietBi_API.Controllers
         {
             public string Account { get; set; } = string.Empty;
             public string Password { get; set; } = string.Empty;
+        }
+
+        public class ResetPasswordRequest
+        {
+            public string Account { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string NewPassword { get; set; } = string.Empty;
+        }
+
+        public class ChangePasswordRequest
+        {
+            public string CurrentPassword { get; set; } = string.Empty;
+            public string NewPassword { get; set; } = string.Empty;
         }
 
         private readonly AppDbContext _context;
@@ -52,6 +66,49 @@ namespace Nhom6_QLThietBi_API.Controllers
                 user.VaiTro,
                 token
             });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var account = request.Account.Trim().ToLowerInvariant();
+            var email = request.Email.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(account) || string.IsNullOrEmpty(email))
+                return BadRequest(new { message = "Vui lòng nhập tên đăng nhập và email." });
+            if (!IsValidPassword(request.NewPassword))
+                return BadRequest(new { message = "Mật khẩu mới phải có ít nhất 6 ký tự." });
+
+            var user = await _context.NguoiDungs.FirstOrDefaultAsync(x =>
+                x.TenDangNhap.ToLower() == account &&
+                x.Email != null && x.Email.ToLower() == email);
+            if (user == null)
+                return BadRequest(new { message = "Tên đăng nhập và email không khớp." });
+            if (user.TrangThai != "hoat_dong")
+                return StatusCode(403, new { message = "Tài khoản đang bị khóa." });
+
+            user.MatKhauHash = HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đặt lại mật khẩu thành công." });
+        }
+
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var idText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(idText, out var userId)) return Unauthorized();
+            if (!IsValidPassword(request.NewPassword))
+                return BadRequest(new { message = "Mật khẩu mới phải có ít nhất 6 ký tự." });
+            if (request.CurrentPassword == request.NewPassword)
+                return BadRequest(new { message = "Mật khẩu mới phải khác mật khẩu hiện tại." });
+
+            var user = await _context.NguoiDungs.FindAsync(userId);
+            if (user == null || !VerifyPassword(request.CurrentPassword, user.MatKhauHash))
+                return BadRequest(new { message = "Mật khẩu hiện tại không đúng." });
+
+            user.MatKhauHash = HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đổi mật khẩu thành công." });
         }
 
         private string CreateToken(int userId, string username, string role)
@@ -99,6 +156,18 @@ namespace Nhom6_QLThietBi_API.Controllers
 
             // Hỗ trợ dữ liệu minh họa cũ trong script SQL.
             return storedHash == password + "_demo_hash";
+        }
+
+        private static bool IsValidPassword(string password) =>
+            !string.IsNullOrWhiteSpace(password) && password.Length >= 6;
+
+        private static string HashPassword(string password)
+        {
+            const int iterations = 100000;
+            var salt = RandomNumberGenerator.GetBytes(16);
+            var hash = Rfc2898DeriveBytes.Pbkdf2(
+                password, salt, iterations, HashAlgorithmName.SHA256, 32);
+            return $"PBKDF2-SHA256${iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
         }
     }
 }

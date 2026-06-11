@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
+using Nhom6_QLThietBi_API.Services;
 using System.Linq;
 
 namespace Nhom6_QLThietBi_API.Controllers
@@ -110,6 +111,8 @@ namespace Nhom6_QLThietBi_API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetRentalOrders()
         {
+            await BusinessStatusSyncService.SyncAsync(_context);
+
             var orders = await _context.DonThues
                 .Include(d => d.DonVi)
                 .Include(d => d.ChiTietDonThues)

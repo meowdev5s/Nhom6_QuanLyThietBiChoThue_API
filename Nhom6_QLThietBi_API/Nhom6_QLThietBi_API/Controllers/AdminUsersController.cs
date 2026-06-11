@@ -41,6 +41,11 @@ namespace Nhom6_QLThietBi_API.Controllers
             public string Status { get; set; } = string.Empty;
         }
 
+        public class AdminResetPasswordRequest
+        {
+            public string TemporaryPassword { get; set; } = string.Empty;
+        }
+
         private static readonly string[] AllowedRoles =
         {
             "admin", "nhan_vien", "khach_hang"
@@ -174,6 +179,24 @@ namespace Nhom6_QLThietBi_API.Controllers
             user.TrangThai = request.Status.Trim();
             await _context.SaveChangesAsync();
             return Ok(new { message = "Cập nhật trạng thái tài khoản thành công." });
+        }
+
+        [HttpPost("{id}/reset-password")]
+        public async Task<IActionResult> ResetPassword(
+            int id,
+            [FromBody] AdminResetPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.TemporaryPassword) ||
+                request.TemporaryPassword.Length < 6)
+                return BadRequest(new { message = "Mật khẩu tạm phải có ít nhất 6 ký tự." });
+
+            var user = await _context.NguoiDungs.FindAsync(id);
+            if (user == null)
+                return NotFound(new { message = "Không tìm thấy tài khoản." });
+
+            user.MatKhauHash = HashPassword(request.TemporaryPassword);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã cấp lại mật khẩu tạm." });
         }
 
         private async Task<IActionResult?> Validate(
