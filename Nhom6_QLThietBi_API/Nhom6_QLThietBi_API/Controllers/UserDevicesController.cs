@@ -21,7 +21,7 @@ namespace Nhom6_QLThietBi_API.Controllers
             var data = await _context.MayTinhs
                 .Include(m => m.DongMayTinh)
                 .Include(m => m.AnhMayTinhs)
-                .Where(m => m.TinhTrang == "san_ready" || m.TinhTrang == "san_sang")
+                .Where(m => m.TinhTrang == "san_sang")
                 .Select(m => new DeviceCatalogDto
                 {
                     Id = m.Id,
@@ -32,6 +32,10 @@ namespace Nhom6_QLThietBi_API.Controllers
                     Gpu = m.Gpu,
                     Display = m.ManHinh,
                     Price = m.GiaThueNgay,
+                    MachineValue = m.GiaTriMay,
+                    DepositRate = m.TiLeDatCoc,
+                    TienDatCocDuKien =
+                        m.GiaTriMay * (m.TiLeDatCoc / 100),
                     ImageUrl = m.AnhMayTinhs.FirstOrDefault(a => a.LaAnhDaiDien) != null
                         ? m.AnhMayTinhs.FirstOrDefault(a => a.LaAnhDaiDien)!.DuongDanAnh : "assets/images/Lap1.jpg"
                 }).ToListAsync();
@@ -79,8 +83,13 @@ namespace Nhom6_QLThietBi_API.Controllers
             var dto = new DeviceDetailDto
             {
                 Id = m.Id,
-                Name = m.DongMayTinh.TenDong,
-                Hang = m.DongMayTinh.Hang,
+                Name = m.DongMayTinh == null
+                    ? m.MaTaiSan
+                    : m.DongMayTinh.Hang + " " + m.DongMayTinh.TenDong,
+                Hang = m.DongMayTinh == null ? string.Empty : m.DongMayTinh.Hang,
+                MaTaiSan = m.MaTaiSan,
+                SerialNumber = m.SerialNumber,
+                LoaiMay = m.LoaiMay,
                 Cpu = m.Cpu,
                 Ram = m.Ram,
                 Ssd = m.OCung,
@@ -92,8 +101,17 @@ namespace Nhom6_QLThietBi_API.Controllers
                 TiLeDatCoc = m.TiLeDatCoc,
                 TienDatCocDuKien = m.GiaTriMay * (m.TiLeDatCoc / 100),
                 TinhTrang = m.TinhTrang,
+                GhiChu = m.GhiChu,
                 ImageUrl = m.AnhMayTinhs.FirstOrDefault(a => a.LaAnhDaiDien) != null
-                    ? m.AnhMayTinhs.FirstOrDefault(a => a.LaAnhDaiDien)!.DuongDanAnh : "assets/images/Lap1.jpg"
+                    ? m.AnhMayTinhs.FirstOrDefault(a => a.LaAnhDaiDien)!.DuongDanAnh
+                    : m.AnhMayTinhs.OrderBy(a => a.NgayTao)
+                        .Select(a => a.DuongDanAnh)
+                        .FirstOrDefault() ?? "assets/images/Lap1.jpg",
+                ImageUrls = m.AnhMayTinhs
+                    .OrderByDescending(a => a.LaAnhDaiDien)
+                    .ThenBy(a => a.NgayTao)
+                    .Select(a => a.DuongDanAnh)
+                    .ToList()
             };
             return Ok(dto);
         }

@@ -282,7 +282,6 @@ namespace Nhom6_QLThietBi_API.Controllers
                 }
             }
 
-            // Hỗ trợ dữ liệu minh họa cũ trong script SQL.
             return storedHash == password + "_demo_hash";
         }
 

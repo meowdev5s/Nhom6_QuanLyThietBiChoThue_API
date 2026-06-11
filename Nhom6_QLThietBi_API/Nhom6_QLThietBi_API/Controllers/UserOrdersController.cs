@@ -44,7 +44,7 @@ namespace Nhom6_QLThietBi_API.Controllers
             foreach (var mayId in req.MayTinhIds)
             {
                 var may = await _context.MayTinhs.FindAsync(mayId);
-                if (may == null || (may.TinhTrang != "san_sang" && may.TinhTrang != "san_ready")) continue;
+                if (may == null || may.TinhTrang != "san_sang") continue;
 
                 var detail = new ChiTietDonThue
                 {

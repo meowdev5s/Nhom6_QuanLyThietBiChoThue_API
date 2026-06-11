@@ -12,6 +12,7 @@
         public decimal Price { get; set; }
         public decimal MachineValue { get; set; }
         public decimal DepositRate { get; set; }
+        public decimal TienDatCocDuKien { get; set; }
         public string ImageUrl { get; set; } = string.Empty;
     }
 }

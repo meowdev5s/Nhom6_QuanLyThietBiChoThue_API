@@ -23,7 +23,9 @@ namespace Nhom6_QLThietBi_API.Controllers
             if (user == null) return NotFound(new { message = "Không tìm thấy tài khoản." });
 
             var chat = await _context.CuocTroChuyens
-                .Where(x => x.KhachHangId == userId && x.TrangThai == "dang_mo")
+                .Where(x => x.KhachHangId == userId &&
+                            (x.TrangThai == "dang_mo" ||
+                             x.TrangThai == "dang_xu_ly"))
                 .OrderByDescending(x => x.NgayCapNhat)
                 .FirstOrDefaultAsync();
             if (chat == null)

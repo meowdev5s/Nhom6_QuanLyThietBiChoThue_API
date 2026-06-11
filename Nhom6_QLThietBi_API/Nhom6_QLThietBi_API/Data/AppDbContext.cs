@@ -202,7 +202,9 @@ namespace Nhom6_QLThietBi_API.Data
                 entity.Property(e => e.DuongDanAnh).HasColumnName("duongDanAnh");
                 entity.Property(e => e.LaAnhDaiDien).HasColumnName("laAnhDaiDien");
                 entity.Property(e => e.NgayTao).HasColumnName("ngayTao");
-                entity.HasOne<MayTinh>().WithMany(m => m.AnhMayTinhs).HasForeignKey(e => e.MayTinhId);
+                entity.HasOne(e => e.MayTinh)
+                    .WithMany(m => m.AnhMayTinhs)
+                    .HasForeignKey(e => e.MayTinhId);
             });
 
             modelBuilder.Entity<HopDong>(entity =>

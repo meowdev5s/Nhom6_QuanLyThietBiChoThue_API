@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nhom6_QLThietBi_API.Data;
+using Nhom6_QLThietBi_API.Services;
 
 namespace Nhom6_QLThietBi_API.Controllers
 {
@@ -87,6 +88,9 @@ namespace Nhom6_QLThietBi_API.Controllers
             var extension = await _context.YeuCauGiaHans
                 .Include(x => x.DonThue)
                     .ThenInclude(x => x!.ChiTietDonThues)
+                .Include(x => x.DonThue)
+                    .ThenInclude(x => x!.HoaDons)
+                        .ThenInclude(x => x.ThanhToans)
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (extension == null)
@@ -121,6 +125,9 @@ namespace Nhom6_QLThietBi_API.Controllers
                     message = "Yêu cầu không có đơn thuê hợp lệ."
                 });
             }
+
+            var approvedAdditionalDays = 0;
+            decimal approvedAdditionalAmount = 0;
 
             if (request.Status == "da_duyet")
             {
@@ -176,7 +183,51 @@ namespace Nhom6_QLThietBi_API.Controllers
                     });
                 }
 
-                order.NgayKetThucDuKien = extension.NgayKetThucMoi.Date;
+                var oldEndDate = order.NgayKetThucDuKien.Date;
+                var newEndDate = extension.NgayKetThucMoi.Date;
+                var additionalDays = (newEndDate - oldEndDate).Days;
+                decimal additionalRentalAmount = 0;
+
+                foreach (var detail in order.ChiTietDonThues
+                    .Where(x => x.TrangThai != "huy"))
+                {
+                    var detailAdditionalAmount =
+                        detail.GiaThueNgay * additionalDays;
+                    detail.SoNgayThue += additionalDays;
+                    detail.ThanhTien += detailAdditionalAmount;
+                    additionalRentalAmount += detailAdditionalAmount;
+                }
+
+                if (additionalRentalAmount <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "Không thể tính tiền gia hạn vì đơn không có thiết bị thuê hợp lệ."
+                    });
+                }
+
+                order.NgayKetThucDuKien = newEndDate;
+                order.TongTienThue += additionalRentalAmount;
+                approvedAdditionalDays = additionalDays;
+                approvedAdditionalAmount = additionalRentalAmount;
+
+                var invoice = order.HoaDons
+                    .Where(x => x.TrangThai != "huy")
+                    .OrderByDescending(x => x.NgayLap)
+                    .FirstOrDefault();
+                if (invoice != null)
+                {
+                    invoice.TienThue += additionalRentalAmount;
+                    invoice.TongThanhToan += additionalRentalAmount;
+
+                    var paidAmount = invoice.ThanhToans.Sum(x => x.SoTien);
+                    invoice.TrangThai = paidAmount <= 0
+                        ? "chua_thanh_toan"
+                        : paidAmount >= invoice.TongThanhToan
+                            ? "da_thanh_toan"
+                            : "thanh_toan_mot_phan";
+                }
+
                 if (order.TrangThai == "qua_han")
                 {
                     order.TrangThai = "dang_thue";
@@ -188,13 +239,26 @@ namespace Nhom6_QLThietBi_API.Controllers
             extension.NgayDuyet = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            var orderCompleted = false;
+            if (request.Status == "da_duyet")
+            {
+                orderCompleted =
+                    await RentalOrderLifecycleService.SyncCompletionAsync(
+                    _context,
+                    order.Id);
+            }
 
             return Ok(new
             {
                 message = request.Status == "da_duyet"
                     ? "Đã duyệt yêu cầu gia hạn."
                     : "Đã từ chối yêu cầu gia hạn.",
-                ngayKetThucMoi = extension.NgayKetThucMoi
+                ngayKetThucMoi = extension.NgayKetThucMoi,
+                soNgayGiaHan = approvedAdditionalDays,
+                tienThueTangThem = approvedAdditionalAmount,
+                tongTienThue = order.TongTienThue,
+                orderCompleted,
+                trangThaiDonThue = order.TrangThai
             });
         }
     }

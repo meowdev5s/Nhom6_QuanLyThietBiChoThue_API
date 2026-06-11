@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Nhom6_QLThietBi_API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5742a0e536488157cad6236e2dfaeaecd4c24bbb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ae598865d77f5a624b5de9e3e14de22fefbc16ab")]
 [assembly: System.Reflection.AssemblyProductAttribute("Nhom6_QLThietBi_API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Nhom6_QLThietBi_API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
